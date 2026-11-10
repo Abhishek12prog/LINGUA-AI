@@ -4,6 +4,7 @@ import whisper
 import tempfile
 import os
 import hashlib
+import html
 
 # ==========================================
 # 1. PAGE CONFIGURATION
@@ -12,7 +13,8 @@ import hashlib
 st.set_page_config(
     page_title="LINGUA-AI",
     page_icon="🎙️",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
 # ==========================================
@@ -34,7 +36,7 @@ st.markdown("""
     padding: 2rem 2rem 3rem 2rem;
 }
 
-/* Main headings */
+/* Headings */
 h1 {
     color: #60a5fa !important;
     font-size: 42px !important;
@@ -47,19 +49,19 @@ h2, h3 {
     font-weight: 700 !important;
 }
 
-/* Text */
+/* General text */
 p, label {
     color: #dbeafe;
 }
 
-/* Header */
+/* Header subtitle */
 .header-subtitle {
-    text-align: center;
     color: #94a3b8;
     font-size: 17px;
+    text-align: center;
 }
 
-/* Section headings */
+/* Section heading */
 .section-heading {
     color: #60a5fa;
     font-size: 21px;
@@ -88,7 +90,7 @@ p, label {
     transform: translateY(-2px);
 }
 
-/* Audio uploader */
+/* File uploader */
 div[data-testid="stFileUploader"] {
     background: rgba(30, 41, 59, 0.7);
     border: 1px dashed #60a5fa;
@@ -103,6 +105,12 @@ div[role="radiogroup"] {
     border-radius: 12px;
 }
 
+/* Audio player */
+audio {
+    width: 100%;
+    border-radius: 12px;
+}
+
 /* Result card */
 .result-card {
     background: linear-gradient(135deg, #172554, #1e3a8a);
@@ -114,7 +122,7 @@ div[role="radiogroup"] {
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
 }
 
-/* Result title */
+/* Result label */
 .result-label {
     color: #bfdbfe;
     font-size: 15px;
@@ -130,13 +138,13 @@ div[role="radiogroup"] {
     margin: 12px 0;
 }
 
-/* Language icon */
+/* Result icon */
 .result-icon {
     font-size: 45px;
-    margin-bottom: 10px;
+    margin: 10px 0;
 }
 
-/* Metrics */
+/* Metric card */
 div[data-testid="stMetric"] {
     background: rgba(37, 99, 235, 0.15);
     border: 1px solid rgba(96, 165, 250, 0.4);
@@ -144,29 +152,22 @@ div[data-testid="stMetric"] {
     border-radius: 14px;
 }
 
-/* Audio player */
-audio {
-    width: 100%;
-    border-radius: 12px;
-}
-
 /* Alerts */
 div[data-testid="stAlert"] {
     border-radius: 12px;
 }
 
-/* Progress */
-.stProgress > div > div > div {
-    background: linear-gradient(90deg, #2563eb, #38bdf8);
-}
-
 /* Footer */
 .footer {
     text-align: center;
-    color: #64748b;
+    color: #94a3b8;
     font-size: 13px;
     padding: 25px 10px;
     margin-top: 35px;
+}
+
+.footer p {
+    color: #94a3b8;
 }
 
 /* Divider */
@@ -191,7 +192,7 @@ footer {
 # 3. APPLICATION HEADER
 # ==========================================
 
-st.markdown("""
+st.html("""
 <div style="text-align:center; padding:15px 0 30px 0;">
 
     <div style="font-size:55px;">🎙️</div>
@@ -207,11 +208,11 @@ st.markdown("""
     </p>
 
 </div>
-""", unsafe_allow_html=True)
+""")
 
 
 # ==========================================
-# 4. LANGUAGE INFORMATION
+# 4. SUPPORTED LANGUAGES
 # ==========================================
 
 LANGUAGE_NAMES = {
@@ -235,7 +236,13 @@ LANGUAGE_NAMES = {
 
 @st.cache_resource
 def load_model():
-    return whisper.load_model("base", device="cpu")
+
+    model = whisper.load_model(
+        "base",
+        device="cpu"
+    )
+
+    return model
 
 
 with st.spinner("Loading AI language detection model..."):
@@ -262,10 +269,11 @@ if "language_score" not in st.session_state:
 # 7. AUDIO INPUT
 # ==========================================
 
-st.markdown(
-    '<div class="section-heading">Step 1: Upload or Record Audio</div>',
-    unsafe_allow_html=True
-)
+st.html("""
+<div class="section-heading">
+    Step 1: Upload or Record Audio
+</div>
+""")
 
 input_type = st.radio(
     "Select your audio input method:",
@@ -301,16 +309,21 @@ if audio_file is not None:
         audio_bytes
     ).hexdigest()
 
+    # Reset results when new audio is selected
     if current_audio_id != st.session_state.audio_id:
 
         st.session_state.audio_id = current_audio_id
+
         st.session_state.detected_language = None
+
         st.session_state.language_score = None
 
-    st.markdown(
-        '<div class="section-heading">Step 2: Identify Spoken Language</div>',
-        unsafe_allow_html=True
-    )
+
+    st.html("""
+    <div class="section-heading">
+        Step 2: Identify Spoken Language
+    </div>
+    """)
 
     if st.button(
         "🌐 Identify Language",
@@ -321,6 +334,7 @@ if audio_file is not None:
 
         try:
 
+            # Save audio temporarily
             suffix = (
                 os.path.splitext(audio_file.name)[1]
                 if hasattr(audio_file, "name")
@@ -333,22 +347,31 @@ if audio_file is not None:
             ) as temp_file:
 
                 temp_file.write(audio_bytes)
+
                 temp_path = temp_file.name
 
+
+            # Identify language
             with st.spinner(
                 "Analysing audio and identifying language..."
             ):
 
-                audio = whisper.load_audio(temp_path)
+                audio = whisper.load_audio(
+                    temp_path
+                )
 
-                audio = whisper.pad_or_trim(audio)
+                audio = whisper.pad_or_trim(
+                    audio
+                )
 
                 mel = whisper.log_mel_spectrogram(
                     audio,
                     n_mels=model.dims.n_mels
                 ).to(model.device)
 
-                _, probabilities = model.detect_language(mel)
+                _, probabilities = model.detect_language(
+                    mel
+                )
 
                 detected_code = max(
                     probabilities,
@@ -360,10 +383,14 @@ if audio_file is not None:
                     detected_code.upper()
                 )
 
-                confidence_score = probabilities[detected_code]
+                confidence_score = probabilities[
+                    detected_code
+                ]
 
                 st.session_state.detected_language = detected_language
+
                 st.session_state.language_score = confidence_score
+
 
         except Exception as error:
 
@@ -383,32 +410,31 @@ if audio_file is not None:
 
     if st.session_state.detected_language:
 
-        st.markdown(
-            f"""
-            <div class="result-card">
-
-                <div class="result-label">
-                    IDENTIFIED LANGUAGE
-                </div>
-
-                <div class="result-icon">
-                    🌐
-                </div>
-
-                <div class="result-language">
-                    {st.session_state.detected_language}
-                </div>
-
-                <div style="color:#bfdbfe; font-size:14px;">
-                    Language successfully identified
-                </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True
+        safe_language = html.escape(
+            st.session_state.detected_language
         )
 
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.html(f"""
+        <div class="result-card">
+
+            <div class="result-label">
+                IDENTIFIED LANGUAGE
+            </div>
+
+            <div class="result-icon">
+                🌐
+            </div>
+
+            <div class="result-language">
+                {safe_language}
+            </div>
+
+            <div style="color:#bfdbfe; font-size:14px;">
+                Language successfully identified
+            </div>
+
+        </div>
+        """)
 
         st.metric(
             "Model Prediction Score",
@@ -416,9 +442,10 @@ if audio_file is not None:
         )
 
         st.caption(
-            "Prediction score is the model's estimate, "
-            "not a verified accuracy percentage."
+            "This score represents the model's prediction, "
+            "not verified recognition accuracy."
         )
+
 
 else:
 
@@ -431,7 +458,7 @@ else:
 # 10. FOOTER
 # ==========================================
 
-st.markdown("""
+st.html("""
 <div class="footer">
 
     <hr>
@@ -451,4 +478,4 @@ st.markdown("""
     </p>
 
 </div>
-""", unsafe_allow_html=True)
+""")
